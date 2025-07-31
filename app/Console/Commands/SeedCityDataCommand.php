@@ -10,6 +10,7 @@ use App\Models\Address\State;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * @see https://opendatalab.de/projects/geojson-utilities/
@@ -30,6 +31,9 @@ class SeedCityDataCommand extends Command
     /** @var array<string, int> */
     private array $statesByRsCode = [];
 
+    /**
+     * @throws Throwable
+     */
     public function handle(): int
     {
         $filePath = $this->argument('file') ?? self::DEFAULT_FILE_PATH;
@@ -74,7 +78,7 @@ class SeedCityDataCommand extends Command
             $this->error('Failed to parse GeoJSON data');
             return null;
         }
-        
+
         if (!is_object($json) || !isset($json->features) || !is_array($json->features)) {
             $this->error('Invalid GeoJSON structure. Expected FeatureCollection.');
             return null;
@@ -86,12 +90,12 @@ class SeedCityDataCommand extends Command
     private function cacheStates(): void
     {
         /** @var array<string, int> $states */
-        $states = State::pluck('id', 'rs_code')->toArray();
+        $states = State::all()->pluck('id', 'rs_code')->toArray();
         $this->statesByRsCode = $states;
     }
 
-    /** 
-     * @param array<mixed> $features 
+    /**
+     * @param array<mixed> $features
      * @return Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}>
      */
     private function transformFeaturesToCityData(array $features): Collection
@@ -108,7 +112,7 @@ class SeedCityDataCommand extends Command
         if (!is_object($feature) || !isset($feature->properties) || !is_object($feature->properties)) {
             return null;
         }
-        
+
         $properties = $feature->properties;
         $cityName = $this->getCityName($properties);
         $stateId = $this->getStateId($properties, $cityName);
@@ -131,8 +135,8 @@ class SeedCityDataCommand extends Command
 
     private function getCityName(object $properties): string
     {
-        return isset($properties->GEN) && is_string($properties->GEN) 
-            ? $properties->GEN 
+        return isset($properties->GEN) && is_string($properties->GEN)
+            ? $properties->GEN
             : 'Unknown';
     }
 
@@ -164,7 +168,7 @@ class SeedCityDataCommand extends Command
 
     private function getZipCode(object $properties, string $cityName): ?string
     {
-        $zip = $this->extractZipFromDestatis($properties) 
+        $zip = $this->extractZipFromDestatis($properties)
             ?? $this->extractZipFromPLZ($properties);
 
         if (!$zip) {
@@ -229,7 +233,9 @@ class SeedCityDataCommand extends Command
         return null;
     }
 
-    /** @param Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}> $cityData */
+    /** @param Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}> $cityData
+     * @throws Throwable
+     */
     private function persistCityData(Collection $cityData): void
     {
         if ($cityData->isEmpty()) {
@@ -262,11 +268,11 @@ class SeedCityDataCommand extends Command
         }
 
         $geoCoordinate = $this->findOrCreateGeoCoordinate(
-            $cityInfo['latitude'], 
+            $cityInfo['latitude'],
             $cityInfo['longitude']
         );
 
-        City::create([
+        City::query()->create([
             'name' => $cityInfo['name'],
             'zip' => $cityInfo['zip'],
             'state_id' => $cityInfo['state_id'],
@@ -277,7 +283,7 @@ class SeedCityDataCommand extends Command
     /** @param array{name: string, zip: string, state_id: int, latitude: float, longitude: float} $cityInfo */
     private function cityExists(array $cityInfo): bool
     {
-        return City::where([
+        return City::query()->where([
             ['name', $cityInfo['name']],
             ['zip', $cityInfo['zip']],
             ['state_id', $cityInfo['state_id']],
@@ -286,7 +292,7 @@ class SeedCityDataCommand extends Command
 
     private function findOrCreateGeoCoordinate(float $latitude, float $longitude): GeoCoordinate
     {
-        return GeoCoordinate::firstOrCreate([
+        return GeoCoordinate::query()->firstOrCreate([
             'latitude' => $latitude,
             'longitude' => $longitude,
         ]);
