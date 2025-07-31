@@ -15,6 +15,7 @@
         "livewire/volt": "^1.7.0"
     },
     "require-dev": {
+        "driftingly/rector-laravel": "^2.0",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.6",
         "laravel/pail": "^1.2.2",
@@ -25,7 +26,8 @@
         "pestphp/pest": "^3.8",
         "pestphp/pest-plugin-arch": "^3.1",
         "pestphp/pest-plugin-laravel": "^3.2",
-        "pestphp/pest-plugin-type-coverage": "^3.6"
+        "pestphp/pest-plugin-type-coverage": "^3.6",
+        "rector/rector": "^2.1"
     },
     "autoload": {
         "psr-4": {
