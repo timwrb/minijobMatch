@@ -41,6 +41,11 @@ class SeedCityDataCommand extends Command
         }
 
         $raw = file_get_contents($filePath);
+        if ($raw === false) {
+            $this->error('Failed to read GeoJSON file');
+            return;
+        }
+        
         $json = json_decode($raw);
 
         if (! $json) {
@@ -49,7 +54,7 @@ class SeedCityDataCommand extends Command
             return;
         }
 
-        if (! isset($json->features)) {
+        if (! is_object($json) || ! isset($json->features) || ! is_array($json->features)) {
             $this->error('Invalid GeoJSON structure. Expected FeatureCollection.');
 
             return;
@@ -65,40 +70,66 @@ class SeedCityDataCommand extends Command
         // Process and transform data
         /** @var \Illuminate\Support\Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}> $cityData */
         $cityData = collect($data)
-            ->map(function (object $feature) use ($statesByRsCode): ?array {
+            ->map(function (mixed $feature) use ($statesByRsCode): ?array {
+                if (! is_object($feature) || ! isset($feature->properties) || ! is_object($feature->properties)) {
+                    return null;
+                }
                 // Extract RS code from geodata (first 2 digits identify Bundesland)
-                $rs = $feature->properties->RS ?? $feature->properties->AGS ?? '';
+                $properties = $feature->properties;
+                $rs = (isset($properties->RS) && is_string($properties->RS)) ? $properties->RS : 
+                      ((isset($properties->AGS) && is_string($properties->AGS)) ? $properties->AGS : '');
                 $bundeslandRsCode = substr($rs, 0, 2);
 
                 // Find the corresponding state
                 $stateId = $statesByRsCode[$bundeslandRsCode] ?? null;
 
+                $cityName = (isset($properties->GEN) && is_string($properties->GEN)) ? $properties->GEN : 'Unknown';
+                
                 if (! $stateId) {
-                    $this->warn("Skipping city - no Bundesland found for RS code: $bundeslandRsCode (City: {$feature->properties->GEN})");
+                    $this->warn("Skipping city - no Bundesland found for RS code: $bundeslandRsCode (City: {$cityName})");
 
                     return null;
                 }
 
                 // Try to get ZIP code from available properties
-                $zip = $feature->properties->destatis->zip ?? $feature->properties->PLZ ?? null;
+                $zip = null;
+                if (isset($properties->destatis) && is_object($properties->destatis) && isset($properties->destatis->zip)) {
+                    $zip = is_string($properties->destatis->zip) ? $properties->destatis->zip : 
+                           (is_numeric($properties->destatis->zip) ? (string)$properties->destatis->zip : null);
+                } elseif (isset($properties->PLZ)) {
+                    $zip = is_string($properties->PLZ) ? $properties->PLZ : 
+                           (is_numeric($properties->PLZ) ? (string)$properties->PLZ : null);
+                }
+                
                 if (! $zip) {
-                    $this->warn("Skipping city - no ZIP code found: {$feature->properties->GEN}");
+                    $this->warn("Skipping city - no ZIP code found: {$cityName}");
 
                     return null;
                 }
 
                 // Parse coordinates from destatis if available, otherwise skip
-                if (! isset($feature->properties->destatis)) {
-                    $this->warn("Skipping city - no destatis data found: {$feature->properties->GEN}");
+                if (! isset($properties->destatis) || ! is_object($properties->destatis)) {
+                    $this->warn("Skipping city - no destatis data found: {$cityName}");
 
                     return null;
                 }
-
-                $longitude = (float) str_replace(',', '.', $feature->properties->destatis->center_lon);
-                $latitude = (float) str_replace(',', '.', $feature->properties->destatis->center_lat);
+                
+                $destatis = $properties->destatis;
+                if (! isset($destatis->center_lon) || ! isset($destatis->center_lat)) {
+                    $this->warn("Skipping city - no coordinates found: {$cityName}");
+                    return null;
+                }
+                
+                $centerLon = is_string($destatis->center_lon) ? $destatis->center_lon : 
+                             (is_numeric($destatis->center_lon) ? (string)$destatis->center_lon : '0');
+                $centerLat = is_string($destatis->center_lat) ? $destatis->center_lat : 
+                             (is_numeric($destatis->center_lat) ? (string)$destatis->center_lat : '0');
+                
+                $longitude = (float) str_replace(',', '.', $centerLon);
+                $latitude = (float) str_replace(',', '.', $centerLat);
 
                 return [
-                    'name' => $feature->properties->GEN,
+                    'name' => $cityName,
                     'zip' => $zip,
                     'longitude' => $longitude,
                     'latitude' => $latitude,
