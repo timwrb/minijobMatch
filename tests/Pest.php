@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -26,7 +28,6 @@ pest()->in('Arch');
 | to assert different things. Of course, you may extend the Expectation API at any time.
 |
 */
-
 
 /*
 |--------------------------------------------------------------------------

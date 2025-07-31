@@ -25,8 +25,9 @@ class SeedCityDataCommand extends Command
 
     protected $description = 'Import German city data from GeoJSON file';
 
-    private const DEFAULT_FILE_PATH = 'storage/app/util/gemeinden_simplify200.geojson';
-    private const CHUNK_SIZE = 500;
+    private const string DEFAULT_FILE_PATH = 'storage/app/util/gemeinden_simplify200.geojson';
+
+    private const int CHUNK_SIZE = 500;
 
     /** @var array<string, int> */
     private array $statesByRsCode = [];
@@ -38,7 +39,7 @@ class SeedCityDataCommand extends Command
     {
         $filePath = $this->argument('file') ?? self::DEFAULT_FILE_PATH;
 
-        if (!$this->validateFile($filePath)) {
+        if (! $this->validateFile($filePath)) {
             return Command::SUCCESS;
         }
 
@@ -56,8 +57,9 @@ class SeedCityDataCommand extends Command
 
     private function validateFile(string $filePath): bool
     {
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             $this->error("GeoJSON file not found at: {$filePath}");
+
             return false;
         }
 
@@ -70,17 +72,20 @@ class SeedCityDataCommand extends Command
         $content = file_get_contents($filePath);
         if ($content === false) {
             $this->error('Failed to read GeoJSON file');
+
             return null;
         }
 
         $json = json_decode($content);
-        if (!$json) {
+        if (! $json) {
             $this->error('Failed to parse GeoJSON data');
+
             return null;
         }
 
-        if (!is_object($json) || !isset($json->features) || !is_array($json->features)) {
+        if (! is_object($json) || ! isset($json->features) || ! is_array($json->features)) {
             $this->error('Invalid GeoJSON structure. Expected FeatureCollection.');
+
             return null;
         }
 
@@ -95,13 +100,13 @@ class SeedCityDataCommand extends Command
     }
 
     /**
-     * @param array<mixed> $features
+     * @param  array<mixed>  $features
      * @return Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}>
      */
     private function transformFeaturesToCityData(array $features): Collection
     {
         return collect($features)
-            ->map(fn(mixed $feature) => $this->transformFeatureToCity($feature))
+            ->map(fn (mixed $feature) => $this->transformFeatureToCity($feature))
             ->filter()
             ->values();
     }
@@ -109,7 +114,7 @@ class SeedCityDataCommand extends Command
     /** @return array{name: string, zip: string, state_id: int, latitude: float, longitude: float}|null */
     private function transformFeatureToCity(mixed $feature): ?array
     {
-        if (!is_object($feature) || !isset($feature->properties) || !is_object($feature->properties)) {
+        if (! is_object($feature) || ! isset($feature->properties) || ! is_object($feature->properties)) {
             return null;
         }
 
@@ -119,7 +124,7 @@ class SeedCityDataCommand extends Command
         $zip = $this->getZipCode($properties, $cityName);
         $coordinates = $this->getCoordinates($properties, $cityName);
 
-        if (!$stateId || !$zip || !$coordinates) {
+        if (! $stateId || ! $zip || ! $coordinates) {
             return null;
         }
 
@@ -131,7 +136,6 @@ class SeedCityDataCommand extends Command
             'longitude' => $coordinates['longitude'],
         ];
     }
-
 
     private function getCityName(object $properties): string
     {
@@ -146,7 +150,7 @@ class SeedCityDataCommand extends Command
         $bundeslandCode = substr($rs, 0, 2);
         $stateId = $this->statesByRsCode[$bundeslandCode] ?? null;
 
-        if (!$stateId) {
+        if (! $stateId) {
             $this->warn("No state found for RS code {$bundeslandCode}: {$cityName}");
         }
 
@@ -171,7 +175,7 @@ class SeedCityDataCommand extends Command
         $zip = $this->extractZipFromDestatis($properties)
             ?? $this->extractZipFromPLZ($properties);
 
-        if (!$zip) {
+        if (! $zip) {
             $this->warn("No ZIP code found: {$cityName}");
         }
 
@@ -180,31 +184,35 @@ class SeedCityDataCommand extends Command
 
     private function extractZipFromDestatis(object $properties): ?string
     {
-        if (!isset($properties->destatis) || !is_object($properties->destatis)) {
+        if (! isset($properties->destatis) || ! is_object($properties->destatis)) {
             return null;
         }
 
         $zip = $properties->destatis->zip ?? null;
+
         return $this->normalizeToString($zip);
     }
 
     private function extractZipFromPLZ(object $properties): ?string
     {
         $zip = $properties->PLZ ?? null;
+
         return $this->normalizeToString($zip);
     }
 
     /** @return array{latitude: float, longitude: float}|null */
     private function getCoordinates(object $properties, string $cityName): ?array
     {
-        if (!isset($properties->destatis) || !is_object($properties->destatis)) {
+        if (! isset($properties->destatis) || ! is_object($properties->destatis)) {
             $this->warn("No coordinates found: {$cityName}");
+
             return null;
         }
 
         $destatis = $properties->destatis;
-        if (!isset($destatis->center_lon, $destatis->center_lat)) {
+        if (! isset($destatis->center_lon, $destatis->center_lat)) {
             $this->warn("No coordinates found: {$cityName}");
+
             return null;
         }
 
@@ -217,6 +225,7 @@ class SeedCityDataCommand extends Command
     private function parseGermanCoordinate(mixed $coordinate): float
     {
         $value = $this->normalizeToString($coordinate) ?? '0';
+
         return (float) str_replace(',', '.', $value);
     }
 
@@ -240,6 +249,7 @@ class SeedCityDataCommand extends Command
     {
         if ($cityData->isEmpty()) {
             $this->error('No valid cities to import');
+
             return;
         }
 
