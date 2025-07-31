@@ -68,8 +68,12 @@ class Address extends Model
                 $parts[] = $this->address_addition;
             }
             // Always add city information
-            $parts[] = $this->city->zip.' '.$this->city->name;
-            $parts[] = $this->city->state->name;
+            if ($this->city) {
+                $parts[] = $this->city->zip.' '.$this->city->name;
+                if ($this->city->state) {
+                    $parts[] = $this->city->state->name;
+                }
+            }
             $parts[] = strtoupper($this->country_iso_code);
 
             return implode(', ', array_filter($parts));

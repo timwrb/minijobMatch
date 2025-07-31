@@ -182,7 +182,7 @@ class Company extends Model
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, string|null>
      */
     public function stripeAddress(): array
     {
