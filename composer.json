@@ -65,6 +65,10 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"
+        ],
+        "test:type-coverage": [
+            "@php artisan config:clear --ansi",
+            "./vendor/bin/pest --type-coverage"
         ]
     },
     "extra": {
