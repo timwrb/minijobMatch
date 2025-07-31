@@ -1,4 +1,4 @@
-name: Tests
+name: PHPStan Static Analysis
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  tests:
+  phpstan:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,15 +23,6 @@ jobs:
         env:
           COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install Node dependencies
-        run: npm ci
-
       - name: Install Composer dependencies
         uses: ramsey/composer-install@v2
 
@@ -44,11 +35,5 @@ jobs:
       - name: Create database file
         run: touch database/database.sqlite
 
-      - name: Run database migrations
-        run: php artisan migrate --force
-
-      - name: Build assets
-        run: npm run build
-
-      - name: Execute tests (excluding Stripe)
-        run: ./vendor/bin/pest --exclude-group=stripe
+      - name: Run PHPStan analysis
+        run: ./vendor/bin/phpstan --error-format=github analyse

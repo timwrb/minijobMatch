@@ -1,4 +1,4 @@
-name: Tests
+name: Type Coverage
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  tests:
+  type-coverage:
     runs-on: ubuntu-latest
 
     steps:
@@ -47,8 +47,5 @@ jobs:
       - name: Run database migrations
         run: php artisan migrate --force
 
-      - name: Build assets
-        run: npm run build
-
-      - name: Execute tests (excluding Stripe)
-        run: ./vendor/bin/pest --exclude-group=stripe
+      - name: Execute type coverage test
+        run: ./vendor/bin/pest --type-coverage --min=100
