@@ -28,9 +28,6 @@ it('can seed city data from geojson fixture', function () {
 
     // Execute the command with the fixture file
     $this->artisan('app:seed-city-data', ['file' => $fixturePath])
-        ->expectsOutput('Starting German city data import...')
-        ->expectsOutput('Processing 3 cities...')
-        ->expectsOutput('City import completed successfully!')
         ->assertExitCode(0);
 
     // Verify that exactly 3 cities were created
@@ -66,11 +63,14 @@ it('can seed city data from geojson fixture', function () {
 it('handles rs code mapping correctly', function () {
     $fixturePath = base_path('tests/fixtures/gemeinden_simplify200.geojson');
 
-    $this->artisan('app:seed-city-data', ['file' => $fixturePath]);
+    $this->artisan('app:seed-city-data', ['file' => $fixturePath])
+        ->assertExitCode(0);
 
     // All cities in the fixture have RS codes starting with "01" (Schleswig-Holstein)
     $schleswigHolstein = State::where('rs_code', '01')->first();
     $cities = City::all();
+    
+    expect($cities->count())->toBe(3);
 
     foreach ($cities as $city) {
         expect($city->state_id)->toBe($schleswigHolstein->id);
@@ -80,10 +80,13 @@ it('handles rs code mapping correctly', function () {
 it('parses german decimal coordinates correctly', function () {
     $fixturePath = base_path('tests/fixtures/gemeinden_simplify200.geojson');
 
-    $this->artisan('app:seed-city-data', ['file' => $fixturePath]);
+    $this->artisan('app:seed-city-data', ['file' => $fixturePath])
+        ->assertExitCode(0);
 
     // Verify that German decimal format (comma) was converted to float (dot)
     $coordinates = GeoCoordinate::all();
+    
+    expect($coordinates->count())->toBe(3);
 
     foreach ($coordinates as $coordinate) {
         expect($coordinate->latitude)->toBeFloat()
@@ -97,8 +100,10 @@ it('prevents duplicate cities', function () {
     $fixturePath = base_path('tests/fixtures/gemeinden_simplify200.geojson');
 
     // Run the command twice
-    $this->artisan('app:seed-city-data', ['file' => $fixturePath]);
-    $this->artisan('app:seed-city-data', ['file' => $fixturePath]);
+    $this->artisan('app:seed-city-data', ['file' => $fixturePath])
+        ->assertExitCode(0);
+    $this->artisan('app:seed-city-data', ['file' => $fixturePath])
+        ->assertExitCode(0);
 
     // Should still only have 3 cities (no duplicates)
     expect(City::count())->toBe(3)
@@ -107,8 +112,11 @@ it('prevents duplicate cities', function () {
 
 it('fails gracefully with invalid file', function () {
     $this->artisan('app:seed-city-data', ['file' => 'nonexistent.json'])
-        ->expectsOutput('GeoJSON file not found at: nonexistent.json')
+        ->expectsOutputToContain('GeoJSON file not found at:')
         ->assertExitCode(0);
+    
+    // Verify no cities were created
+    expect(City::count())->toBe(0);
 });
 
 it('fails gracefully with invalid json', function () {
@@ -117,8 +125,11 @@ it('fails gracefully with invalid json', function () {
     file_put_contents($tempFile, '{"invalid": json}');
 
     $this->artisan('app:seed-city-data', ['file' => $tempFile])
-        ->expectsOutput('Failed to parse GeoJSON data')
+        ->expectsOutputToContain('Failed to parse GeoJSON data')
         ->assertExitCode(0);
+    
+    // Verify no cities were created
+    expect(City::count())->toBe(0);
 
     // Clean up
     unlink($tempFile);
@@ -130,9 +141,60 @@ it('validates required geojson structure', function () {
     file_put_contents($tempFile, json_encode(['type' => 'InvalidType']));
 
     $this->artisan('app:seed-city-data', ['file' => $tempFile])
-        ->expectsOutput('Invalid GeoJSON structure. Expected FeatureCollection.')
+        ->expectsOutputToContain('Invalid GeoJSON structure')
         ->assertExitCode(0);
+    
+    // Verify no cities were created
+    expect(City::count())->toBe(0);
 
     // Clean up
     unlink($tempFile);
+});
+
+it('handles missing data gracefully and shows warnings', function () {
+    // Create a GeoJSON with incomplete data to test warnings
+    $incompleteData = [
+        'type' => 'FeatureCollection',
+        'features' => [
+            [
+                'type' => 'Feature',
+                'properties' => [
+                    'GEN' => 'TestCity',
+                    'RS' => '99999999',  // Invalid RS code
+                ],
+                'geometry' => ['type' => 'Point', 'coordinates' => [0, 0]]
+            ]
+        ]
+    ];
+    
+    $tempFile = storage_path('temp_incomplete.geojson');
+    file_put_contents($tempFile, json_encode($incompleteData));
+
+    $this->artisan('app:seed-city-data', ['file' => $tempFile])
+        ->assertExitCode(0);
+    
+    // Should have created no cities due to invalid RS code
+    expect(City::count())->toBe(0);
+
+    // Clean up
+    unlink($tempFile);
+});
+
+it('processes data and creates proper relationships', function () {
+    $fixturePath = base_path('tests/fixtures/gemeinden_simplify200.geojson');
+
+    $this->artisan('app:seed-city-data', ['file' => $fixturePath])
+        ->assertExitCode(0);
+
+    // Verify relationships are properly created
+    $cities = City::with('geoCoordinate', 'state')->get();
+    
+    expect($cities->count())->toBe(3);
+    
+    foreach ($cities as $city) {
+        expect($city->geoCoordinate)->not()->toBeNull()
+            ->and($city->state)->not()->toBeNull()
+            ->and($city->zip)->not()->toBeEmpty()
+            ->and($city->name)->not()->toBeEmpty();
+    }
 });

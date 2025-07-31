@@ -8,179 +8,243 @@ use App\Models\Address\City;
 use App\Models\Address\GeoCoordinate;
 use App\Models\Address\State;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * @see https://opendatalab.de/projects/geojson-utilities/
+ *
+ * This command is used to seed city data into the database.
+ * Download the latest GeoJSON data for cities in Germany.
+ * Then, put the .geojson file into the storage/app/util/gemeinden_simplify200.geojson. This directory is gitignored.
+ */
 class SeedCityDataCommand extends Command
 {
-    /**
-     * @see https://opendatalab.de/projects/geojson-utilities/
-     *
-     * @note This command is used to seed city data into the database.
-     * Download the latest GeoJSON data for cities in Germany.
-     * Then, put the .geojson file into the storage/app/util/gemeinden_simplify200.geojson. This directory is gitignored.
-     */
-
-    /** @var string */
     protected $signature = 'app:seed-city-data {file? : Path to the GeoJSON file}';
 
-    /** @var string */
-    protected $description = 'Import German city data from GeoJSON file with automatic Bundesland assignment';
+    protected $description = 'Import German city data from GeoJSON file';
 
-    protected string $defaultFilePath = 'storage/app/util/gemeinden_simplify200.geojson';
+    private const DEFAULT_FILE_PATH = 'storage/app/util/gemeinden_simplify200.geojson';
+    private const CHUNK_SIZE = 500;
 
-    public function handle(): void
+    /** @var array<string, int> */
+    private array $statesByRsCode = [];
+
+    public function handle(): int
     {
-        $this->info('Starting German city data import...');
+        $filePath = $this->argument('file') ?? self::DEFAULT_FILE_PATH;
 
-        $filePath = $this->argument('file') ?? $this->defaultFilePath;
-
-        if (! file_exists($filePath)) {
-            $this->error("GeoJSON file not found at: {$filePath}");
-
-            return;
+        if (!$this->validateFile($filePath)) {
+            return Command::SUCCESS;
         }
 
-        $raw = file_get_contents($filePath);
-        if ($raw === false) {
+        $features = $this->parseGeoJsonFile($filePath);
+        if ($features === null) {
+            return Command::SUCCESS;
+        }
+
+        $this->cacheStates();
+        $cityData = $this->transformFeaturesToCityData($features);
+        $this->persistCityData($cityData);
+
+        return Command::SUCCESS;
+    }
+
+    private function validateFile(string $filePath): bool
+    {
+        if (!file_exists($filePath)) {
+            $this->error("GeoJSON file not found at: {$filePath}");
+            return false;
+        }
+
+        return true;
+    }
+
+    /** @return array<mixed>|null */
+    private function parseGeoJsonFile(string $filePath): ?array
+    {
+        $content = file_get_contents($filePath);
+        if ($content === false) {
             $this->error('Failed to read GeoJSON file');
-            return;
+            return null;
+        }
+
+        $json = json_decode($content);
+        if (!$json) {
+            $this->error('Failed to parse GeoJSON data');
+            return null;
         }
         
-        $json = json_decode($raw);
-
-        if (! $json) {
-            $this->error('Failed to parse GeoJSON data');
-
-            return;
-        }
-
-        if (! is_object($json) || ! isset($json->features) || ! is_array($json->features)) {
+        if (!is_object($json) || !isset($json->features) || !is_array($json->features)) {
             $this->error('Invalid GeoJSON structure. Expected FeatureCollection.');
+            return null;
+        }
 
+        return $json->features;
+    }
+
+    private function cacheStates(): void
+    {
+        /** @var array<string, int> $states */
+        $states = State::pluck('id', 'rs_code')->toArray();
+        $this->statesByRsCode = $states;
+    }
+
+    /** 
+     * @param array<mixed> $features 
+     * @return Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}>
+     */
+    private function transformFeaturesToCityData(array $features): Collection
+    {
+        return collect($features)
+            ->map(fn(mixed $feature) => $this->transformFeatureToCity($feature))
+            ->filter()
+            ->values();
+    }
+
+    /** @return array{name: string, zip: string, state_id: int, latitude: float, longitude: float}|null */
+    private function transformFeatureToCity(mixed $feature): ?array
+    {
+        if (!is_object($feature) || !isset($feature->properties) || !is_object($feature->properties)) {
+            return null;
+        }
+        
+        $properties = $feature->properties;
+        $cityName = $this->getCityName($properties);
+        $stateId = $this->getStateId($properties, $cityName);
+        $zip = $this->getZipCode($properties, $cityName);
+        $coordinates = $this->getCoordinates($properties, $cityName);
+
+        if (!$stateId || !$zip || !$coordinates) {
+            return null;
+        }
+
+        return [
+            'name' => $cityName,
+            'zip' => $zip,
+            'state_id' => $stateId,
+            'latitude' => $coordinates['latitude'],
+            'longitude' => $coordinates['longitude'],
+        ];
+    }
+
+
+    private function getCityName(object $properties): string
+    {
+        return isset($properties->GEN) && is_string($properties->GEN) 
+            ? $properties->GEN 
+            : 'Unknown';
+    }
+
+    private function getStateId(object $properties, string $cityName): ?int
+    {
+        $rs = $this->extractRsCode($properties);
+        $bundeslandCode = substr($rs, 0, 2);
+        $stateId = $this->statesByRsCode[$bundeslandCode] ?? null;
+
+        if (!$stateId) {
+            $this->warn("No state found for RS code {$bundeslandCode}: {$cityName}");
+        }
+
+        return $stateId;
+    }
+
+    private function extractRsCode(object $properties): string
+    {
+        if (isset($properties->RS) && is_string($properties->RS)) {
+            return $properties->RS;
+        }
+
+        if (isset($properties->AGS) && is_string($properties->AGS)) {
+            return $properties->AGS;
+        }
+
+        return '';
+    }
+
+    private function getZipCode(object $properties, string $cityName): ?string
+    {
+        $zip = $this->extractZipFromDestatis($properties) 
+            ?? $this->extractZipFromPLZ($properties);
+
+        if (!$zip) {
+            $this->warn("No ZIP code found: {$cityName}");
+        }
+
+        return $zip;
+    }
+
+    private function extractZipFromDestatis(object $properties): ?string
+    {
+        if (!isset($properties->destatis) || !is_object($properties->destatis)) {
+            return null;
+        }
+
+        $zip = $properties->destatis->zip ?? null;
+        return $this->normalizeToString($zip);
+    }
+
+    private function extractZipFromPLZ(object $properties): ?string
+    {
+        $zip = $properties->PLZ ?? null;
+        return $this->normalizeToString($zip);
+    }
+
+    /** @return array{latitude: float, longitude: float}|null */
+    private function getCoordinates(object $properties, string $cityName): ?array
+    {
+        if (!isset($properties->destatis) || !is_object($properties->destatis)) {
+            $this->warn("No coordinates found: {$cityName}");
+            return null;
+        }
+
+        $destatis = $properties->destatis;
+        if (!isset($destatis->center_lon, $destatis->center_lat)) {
+            $this->warn("No coordinates found: {$cityName}");
+            return null;
+        }
+
+        return [
+            'longitude' => $this->parseGermanCoordinate($destatis->center_lon),
+            'latitude' => $this->parseGermanCoordinate($destatis->center_lat),
+        ];
+    }
+
+    private function parseGermanCoordinate(mixed $coordinate): float
+    {
+        $value = $this->normalizeToString($coordinate) ?? '0';
+        return (float) str_replace(',', '.', $value);
+    }
+
+    private function normalizeToString(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (string) $value;
+        }
+
+        return null;
+    }
+
+    /** @param Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}> $cityData */
+    private function persistCityData(Collection $cityData): void
+    {
+        if ($cityData->isEmpty()) {
+            $this->error('No valid cities to import');
             return;
         }
 
-        $data = $json->features;
-
-        $this->info('Processing '.count($data).' cities...');
-
-        // Cache states by rs_code for fast lookup
-        $statesByRsCode = State::pluck('id', 'rs_code')->toArray();
-
-        // Process and transform data
-        /** @var \Illuminate\Support\Collection<int, array{name: string, zip: string, state_id: int, latitude: float, longitude: float}> $cityData */
-        $cityData = collect($data)
-            ->map(function (mixed $feature) use ($statesByRsCode): ?array {
-                if (! is_object($feature) || ! isset($feature->properties) || ! is_object($feature->properties)) {
-                    return null;
-                }
-                // Extract RS code from geodata (first 2 digits identify Bundesland)
-                $properties = $feature->properties;
-                $rs = (isset($properties->RS) && is_string($properties->RS)) ? $properties->RS : 
-                      ((isset($properties->AGS) && is_string($properties->AGS)) ? $properties->AGS : '');
-                $bundeslandRsCode = substr($rs, 0, 2);
-
-                // Find the corresponding state
-                $stateId = $statesByRsCode[$bundeslandRsCode] ?? null;
-
-                $cityName = (isset($properties->GEN) && is_string($properties->GEN)) ? $properties->GEN : 'Unknown';
-                
-                if (! $stateId) {
-                    $this->warn("Skipping city - no Bundesland found for RS code: $bundeslandRsCode (City: {$cityName})");
-
-                    return null;
-                }
-
-                // Try to get ZIP code from available properties
-                $zip = null;
-                if (isset($properties->destatis) && is_object($properties->destatis) && isset($properties->destatis->zip)) {
-                    $zip = is_string($properties->destatis->zip) ? $properties->destatis->zip : 
-                           (is_numeric($properties->destatis->zip) ? (string)$properties->destatis->zip : null);
-                } elseif (isset($properties->PLZ)) {
-                    $zip = is_string($properties->PLZ) ? $properties->PLZ : 
-                           (is_numeric($properties->PLZ) ? (string)$properties->PLZ : null);
-                }
-                
-                if (! $zip) {
-                    $this->warn("Skipping city - no ZIP code found: {$cityName}");
-
-                    return null;
-                }
-
-                // Parse coordinates from destatis if available, otherwise skip
-                if (! isset($properties->destatis) || ! is_object($properties->destatis)) {
-                    $this->warn("Skipping city - no destatis data found: {$cityName}");
-
-                    return null;
-                }
-                
-                $destatis = $properties->destatis;
-                if (! isset($destatis->center_lon) || ! isset($destatis->center_lat)) {
-                    $this->warn("Skipping city - no coordinates found: {$cityName}");
-                    return null;
-                }
-                
-                $centerLon = is_string($destatis->center_lon) ? $destatis->center_lon : 
-                             (is_numeric($destatis->center_lon) ? (string)$destatis->center_lon : '0');
-                $centerLat = is_string($destatis->center_lat) ? $destatis->center_lat : 
-                             (is_numeric($destatis->center_lat) ? (string)$destatis->center_lat : '0');
-                
-                $longitude = (float) str_replace(',', '.', $centerLon);
-                $latitude = (float) str_replace(',', '.', $centerLat);
-
-                return [
-                    'name' => $cityName,
-                    'zip' => $zip,
-                    'longitude' => $longitude,
-                    'latitude' => $latitude,
-                    'state_id' => $stateId,
-                ];
-            })
-            ->filter() // Remove null entries
-            ->values();
-
-        $this->info("Valid cities to process: {$cityData->count()}");
-
-        // Process in chunks for memory efficiency and performance
         $bar = $this->output->createProgressBar($cityData->count());
         $bar->start();
 
-        $cityData->chunk(500)->each(function (\Illuminate\Support\Collection $chunk) use ($bar) {
-            DB::transaction(function () use ($chunk, $bar) {
+        $cityData->chunk(self::CHUNK_SIZE)->each(function (Collection $chunk) use ($bar): void {
+            DB::transaction(function () use ($chunk, $bar): void {
                 /** @var array{name: string, zip: string, state_id: int, latitude: float, longitude: float} $cityInfo */
                 foreach ($chunk as $cityInfo) {
-                    // Check if city already exists
-                    $existingCity = City::where('name', $cityInfo['name'])
-                        ->where('zip', $cityInfo['zip'])
-                        ->where('state_id', $cityInfo['state_id'])
-                        ->first();
-
-                    if ($existingCity) {
-                        $bar->advance();
-
-                        continue;
-                    }
-
-                    // Check if GeoCoordinate already exists
-                    $geoCoordinate = GeoCoordinate::where('latitude', $cityInfo['latitude'])
-                        ->where('longitude', $cityInfo['longitude'])
-                        ->first();
-
-                    if (! $geoCoordinate) {
-                        $geoCoordinate = GeoCoordinate::create([
-                            'latitude' => $cityInfo['latitude'],
-                            'longitude' => $cityInfo['longitude'],
-                        ]);
-                    }
-
-                    // Create city
-                    City::create([
-                        'name' => $cityInfo['name'],
-                        'zip' => $cityInfo['zip'],
-                        'state_id' => $cityInfo['state_id'],
-                        'geo_coordinate_id' => $geoCoordinate->id,
-                    ]);
-
+                    $this->createCityIfNotExists($cityInfo);
                     $bar->advance();
                 }
             });
@@ -188,12 +252,43 @@ class SeedCityDataCommand extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->info('City import completed successfully!');
+    }
 
-        // Show summary
-        $totalCities = City::count();
-        $totalCoordinates = GeoCoordinate::count();
-        $this->info("Total cities in database: $totalCities");
-        $this->info("Total coordinates in database: $totalCoordinates");
+    /** @param array{name: string, zip: string, state_id: int, latitude: float, longitude: float} $cityInfo */
+    private function createCityIfNotExists(array $cityInfo): void
+    {
+        if ($this->cityExists($cityInfo)) {
+            return;
+        }
+
+        $geoCoordinate = $this->findOrCreateGeoCoordinate(
+            $cityInfo['latitude'], 
+            $cityInfo['longitude']
+        );
+
+        City::create([
+            'name' => $cityInfo['name'],
+            'zip' => $cityInfo['zip'],
+            'state_id' => $cityInfo['state_id'],
+            'geo_coordinate_id' => $geoCoordinate->id,
+        ]);
+    }
+
+    /** @param array{name: string, zip: string, state_id: int, latitude: float, longitude: float} $cityInfo */
+    private function cityExists(array $cityInfo): bool
+    {
+        return City::where([
+            ['name', $cityInfo['name']],
+            ['zip', $cityInfo['zip']],
+            ['state_id', $cityInfo['state_id']],
+        ])->exists();
+    }
+
+    private function findOrCreateGeoCoordinate(float $latitude, float $longitude): GeoCoordinate
+    {
+        return GeoCoordinate::firstOrCreate([
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ]);
     }
 }
