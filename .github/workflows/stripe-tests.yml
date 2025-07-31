@@ -1,0 +1,65 @@
+name: Stripe API Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  stripe-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: curl, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, iconv
+          coverage: none
+        env:
+          COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Composer dependencies
+        uses: ramsey/composer-install@v2
+
+      - name: Copy environment file
+        run: cp .env.example .env
+
+      - name: Set Stripe testing environment variables
+        run: |
+          echo "TESTING_STRIPE_KEY=${{ secrets.TESTING_STRIPE_KEY }}" >> .env
+          echo "TESTING_STRIPE_SECRET=${{ secrets.TESTING_STRIPE_SECRET }}" >> .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Create database file
+        run: touch database/database.sqlite
+
+      - name: Run database migrations
+        run: php artisan migrate --force
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Clear Laravel config cache
+        run: php artisan config:clear
+
+      - name: Execute Stripe tests
+        env:
+          TESTING_STRIPE_KEY: ${{ secrets.TESTING_STRIPE_KEY }}
+          TESTING_STRIPE_SECRET: ${{ secrets.TESTING_STRIPE_SECRET }}
+        run: ./vendor/bin/pest --group=stripe

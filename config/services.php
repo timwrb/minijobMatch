@@ -35,4 +35,25 @@ return [
         ],
     ],
 
+    'stripe' => [
+        'live' => [
+            'default_subscription' => [
+                'price_id' => env('DEFAULT_SUBSCRIPTION_PRICE_ID'),
+                'meter_id' => env('DEFAULT_SUBSCRIPTION_METER_ID'),
+                'sub_id' => env('DEFAULT_SUBSCRIPTION_ID'),
+                'event_name' => env('DEFAULT_SUBSCRIPTION_EVENT_NAME'),
+            ],
+        ],
+        'testing' => [
+            'testing_key' => env('TESTING_STRIPE_KEY'),
+            'testing_secret' => env('TESTING_STRIPE_SECRET'),
+            'default_subscription' => [
+                'price_id' => env('TESTING_DEFAULT_SUBSCRIPTION_PRICE_ID'),
+                'meter_id' => env('TESTING_DEFAULT_SUBSCRIPTION_METER_ID'),
+                'sub_id' => env('TESTING_DEFAULT_SUBSCRIPTION_ID'),
+                'event_name' => env('TESTING_DEFAULT_SUBSCRIPTION_EVENT_NAME'),
+            ],
+        ],
+    ],
+
 ];
