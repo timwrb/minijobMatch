@@ -51,4 +51,4 @@ jobs:
         run: npm run build
 
       - name: Execute tests (excluding Stripe)
-        run: ./vendor/bin/pest --exclude-group=stripe
+        run: ./vendor/bin/pest --exclude-group=stripe --parallel

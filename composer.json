@@ -64,7 +64,7 @@
         ],
         "test": [
             "@php artisan config:clear --ansi",
-            "@php artisan test"
+            "./vendor/bin/phpstan --parallel"
         ],
         "test:type-coverage": [
             "@php artisan config:clear --ansi",

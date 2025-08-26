@@ -62,4 +62,4 @@ jobs:
         env:
           TESTING_STRIPE_KEY: ${{ secrets.TESTING_STRIPE_KEY }}
           TESTING_STRIPE_SECRET: ${{ secrets.TESTING_STRIPE_SECRET }}
-        run: ./vendor/bin/pest --group=stripe
+        run: ./vendor/bin/pest --group=stripe --parallel
