@@ -67,7 +67,8 @@
         ],
         "test": [
             "@php artisan config:clear --ansi",
-            "./vendor/bin/phpstan --parallel"
+            "@php vendor/bin/pest --exclude-group=stripe --parallel",
+            "@php vendor/bin/pest --group=stripe --parallel"
         ],
         "test:type-coverage": [
             "@php artisan config:clear --ansi",
