@@ -1,0 +1,40 @@
+tabs:
+  main:
+    display: Hauptteil
+    sections:
+      -
+        fields:
+          -
+            handle: title
+            field:
+              type: text
+              required: true
+              validate:
+                - required
+      -
+        display: Teaser
+        fields:
+          -
+            handle: teaser
+            field:
+              character_limit: 180
+              type: textarea
+              display: Teaser
+      -
+        display: Inhalt
+        fields:
+          -
+            handle: article
+            field: bard.article
+  sidebar:
+    display: Sidebar
+    sections:
+      -
+        fields:
+          -
+            handle: slug
+            field:
+              type: slug
+              localizable: true
+              validate: 'max:200'
+title: Artikel

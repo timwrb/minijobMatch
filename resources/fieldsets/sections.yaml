@@ -1,0 +1,23 @@
+title: 'Sections (Bereiche gefüllt mit Komponenten)'
+fields:
+  -
+    handle: section
+    field:
+      type: replicator
+      display: Section
+      collapse: true
+      button_label: 'Neuer Bereich hinzufügen'
+      sets:
+        neue_setgruppe:
+          display: 'Neue Setgruppe'
+          sets:
+            content_rounding:
+              display: 'Content mit Rundung'
+              fields:
+                -
+                  import: sections.content_rounded
+            content_blank:
+              display: 'Content Blank'
+              fields:
+                -
+                  import: sections.content_blank

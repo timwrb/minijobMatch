@@ -1,0 +1,63 @@
+tabs:
+  onboarding:
+    display: Onboarding
+    sections:
+      -
+        fields:
+          -
+            handle: steps
+            field:
+              collapse: true
+              type: replicator
+              display: Schritte
+              sets:
+                neue_setgruppe:
+                  display: 'Neue Setgruppe'
+                  sets:
+                    step:
+                      display: Schritt
+                      fields:
+                        -
+                          handle: hint
+                          field:
+                            type: text
+                            display: Hint
+                            width: 66
+                            validate:
+                              - required
+                        -
+                          handle: title
+                          field:
+                            type: text
+                            display: Title
+                            validate:
+                              - required
+                        -
+                          handle: description
+                          field:
+                            type: textarea
+                            display: Beschreibung
+                        -
+                          handle: button_label
+                          field:
+                            type: text
+                            display: 'Button Label'
+                            validate:
+                              - required
+                        -
+                          handle: button_action
+                          field:
+                            mode: php
+                            type: code
+                            display: 'Button Action'
+                            validate:
+                              - required
+                        -
+                          handle: completed_condition
+                          field:
+                            mode: php
+                            type: code
+                            display: 'Completed Condition'
+                            instructions: 'must return true or false'
+                            validate:
+                              - required

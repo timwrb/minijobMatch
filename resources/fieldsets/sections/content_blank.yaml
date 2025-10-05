@@ -1,0 +1,10 @@
+title: 'Content Blank'
+fields:
+  -
+    handle: padding_y
+    field:
+      default: true
+      type: toggle
+      display: 'Abstand/Einrücken nach oben/unten?'
+  -
+    import: blocks

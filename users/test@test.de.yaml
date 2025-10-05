@@ -1,0 +1,6 @@
+name: 'Statamic User'
+super: true
+id: 8a94dbab-8a70-4c24-9088-a0fbe71999a9
+password_hash: $2y$12$kLcNLsYTgOtjR6jkBMAYFuQYMJGeI/T8MtZAk3n4Lz8c/V3yGq4mq
+preferences:
+  theme: light

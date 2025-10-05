@@ -1,0 +1,19 @@
+tabs:
+  main:
+    display: SEO
+    sections:
+      -
+        display: 'Site Settings'
+        fields:
+          -
+            handle: site_name
+            field:
+              type: text
+              display: 'Site Name'
+              instructions: 'The name of your website'
+          -
+            handle: site_description
+            field:
+              type: textarea
+              display: 'Site Description'
+              instructions: 'Default meta description for your website'

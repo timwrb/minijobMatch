@@ -1,0 +1,6 @@
+title: Footer
+collections:
+  - search_landing_pages
+  - pages
+  - articles
+max_depth: 2

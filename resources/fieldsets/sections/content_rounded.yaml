@@ -1,0 +1,65 @@
+title: 'Content mit Rundung'
+fields:
+  -
+    handle: roundings
+    field:
+      options:
+        -
+          key: tl
+          value: 'Oben Links'
+        -
+          key: tr
+          value: 'Oben Rechts'
+        -
+          key: bl
+          value: 'Unten Links'
+        -
+          key: br
+          value: 'Unten Rechts'
+      type: checkboxes
+      display: Rundungen
+      width: 33
+  -
+    handle: padding_y
+    field:
+      default: true
+      type: toggle
+      display: 'Abstand/Einrücken nach oben/unten?'
+      width: 33
+  -
+    handle: bg
+    field: common.bg
+    config:
+      validate:
+        - required
+      width: 33
+  -
+    handle: width
+    field:
+      options:
+        -
+          key: full
+          value: 'Volle Breite'
+        -
+          key: 7xl
+          value: 7XL
+        -
+          key: 5xl
+          value: 5XL
+        -
+          key: 3xl
+          value: 3XL
+      default: 7xl
+      type: button_group
+      display: Breite
+      width: 50
+      validate:
+        - required
+  -
+    handle: soft_rounded_corners
+    field:
+      type: toggle
+      display: 'Ecken Leicht abrunden'
+      width: 50
+  -
+    import: blocks

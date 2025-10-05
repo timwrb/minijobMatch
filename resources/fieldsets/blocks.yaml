@@ -1,0 +1,40 @@
+title: 'Blocks (Komponenten)'
+fields:
+  -
+    handle: blocks
+    field:
+      collapse: true
+      type: replicator
+      display: Blocks
+      sets:
+        basic:
+          display: 'Einfache Komponenten'
+          icon: puzzle-piece
+          sets:
+            hero_section:
+              display: 'Hero Section - Landing Page'
+              fields:
+                -
+                  import: blocks.hero_section
+            faq_accordion:
+              display: 'FAQ Akkordion'
+              fields:
+                -
+                  import: blocks.faq_accordion
+            content_image:
+              display: 'Content - Image'
+              fields:
+                -
+                  import: blocks.content_image
+            cards_3:
+              display: '3 Boxen'
+              fields:
+                -
+                  import: blocks.cards_3
+        livewire:
+          display: 'Funktionale Komponenten'
+          icon: setting-cog-gear
+          sets:
+            neues_set:
+              display: 'Neues Set'
+              fields: {  }

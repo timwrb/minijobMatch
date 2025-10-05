@@ -1,0 +1,11 @@
+tabs:
+  main:
+    display: Hauptteil
+    sections:
+      -
+        fields:
+          -
+            handle: not_available
+            field:
+              type: toggle
+              display: 'Nicht verfügbar'

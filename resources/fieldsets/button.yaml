@@ -1,0 +1,62 @@
+title: Button
+fields:
+  -
+    handle: text
+    field:
+      type: text
+      display: 'Button Text'
+      width: 66
+      validate:
+        - required
+  -
+    handle: bg
+    field: common.bg
+    config:
+      options:
+        -
+          key: white
+          value: Weiß
+        -
+          key: zinc-100
+          value: Hellgrau
+        -
+          key: primary
+          value: 'Primär (Türkis)'
+        -
+          key: '[#947B56]'
+          value: 'Sekundär (Beige)'
+      validate:
+        - required
+      width: 33
+  -
+    handle: link
+    field:
+      type: link
+      display: Link
+      collections:
+        - pages
+  -
+    handle: icon
+    field:
+      options:
+        -
+          key: none
+          value: 'Kein Icon'
+        -
+          key: prefix
+          value: 'Icon Vorne'
+        -
+          key: suffix
+          value: 'Icon Hinten'
+      type: button_group
+      display: Icon
+      width: 50
+  -
+    handle: heroicon_string
+    field:
+      type: text
+      display: 'Heroicon String'
+      instructions: 'z.B. "s-envelope"'
+      width: 50
+      if:
+        icon: 'not none'

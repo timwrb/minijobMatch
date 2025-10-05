@@ -1,0 +1,46 @@
+title: 'FAQ Akkordion'
+fields:
+  -
+    handle: bard
+    field:
+      buttons:
+        - h2
+        - h3
+        - bold
+        - italic
+        - unorderedlist
+        - orderedlist
+        - anchor
+        - alignleft
+        - aligncenter
+        - alignright
+      remove_empty_nodes: false
+      type: bard
+      display: Überschrift
+  -
+    handle: faq
+    field:
+      collapse: true
+      type: replicator
+      display: FAQs
+      sets:
+        neue_setgruppe:
+          display: 'Neue Setgruppe'
+          sets:
+            neues_set:
+              display: 'Frage - Antwort'
+              fields:
+                -
+                  handle: question
+                  field:
+                    type: text
+                    display: Frage
+                    validate:
+                      - required
+                -
+                  handle: answer
+                  field:
+                    type: textarea
+                    display: Antwort
+                    validate:
+                      - required

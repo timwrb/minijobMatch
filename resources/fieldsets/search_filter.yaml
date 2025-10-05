@@ -1,0 +1,61 @@
+title: 'Such Filter'
+fields:
+  -
+    handle: search_term
+    field:
+      type: text
+      display: Suchbegriff
+  -
+    handle: city
+    field:
+      type: text
+      display: Stadt
+      width: 33
+  -
+    handle: radius
+    field:
+      options:
+        -
+          key: 10
+          value: '10'
+        -
+          key: 25
+          value: '25'
+        -
+          key: 50
+          value: '50'
+        -
+          key: 75
+          value: '75'
+        -
+          key: 100
+          value: '100'
+        -
+          key: 9999
+          value: ∞
+      default: '9999'
+      type: button_group
+      display: 'Kilometer Radius'
+      width: 66
+      validate:
+        - required
+  -
+    handle: tags
+    field:
+      dictionary: tag_dictionary
+      type: dictionary
+      display: Tags
+  -
+    handle: longitude
+    field:
+      type: float
+      display: 'Longitude (Längengrad)'
+      width: 50
+      visibility: computed
+  -
+    handle: latitude
+    field:
+      type: float
+      display: 'Latitude (Breitengrad)'
+      width: 50
+      visibility: computed

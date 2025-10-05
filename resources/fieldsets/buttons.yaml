@@ -1,0 +1,17 @@
+title: Buttons
+fields:
+  -
+    handle: buttons
+    field:
+      type: replicator
+      display: Buttons
+      collapse: true
+      sets:
+        neue_setgruppe:
+          display: 'Neue Setgruppe'
+          sets:
+            neues_set:
+              display: Button
+              fields:
+                -
+                  import: button

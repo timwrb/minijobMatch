@@ -1,0 +1,7 @@
+title: 'Hero Section'
+fields:
+  -
+    handle: test
+    field:
+      type: text
+      display: Test

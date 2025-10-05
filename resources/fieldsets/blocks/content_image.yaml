@@ -1,0 +1,27 @@
+title: 'Content 2 Spaltig'
+fields:
+  -
+    handle: position
+    field:
+      options:
+        -
+          key: left
+          value: Links
+        -
+          key: right
+          value: Rechts
+      type: button_group
+      display: Textposition
+      width: 50
+  -
+    handle: image
+    field:
+      container: images
+      type: assets
+      display: Bild
+      width: 50
+      validate:
+        - required
+  -
+    handle: bard
+    field: common.bard

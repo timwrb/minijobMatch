@@ -1,0 +1,45 @@
+title: 'Bard Komponenten'
+fields:
+  -
+    handle: article
+    field:
+      buttons:
+        - h1
+        - h2
+        - h3
+        - h4
+        - h5
+        - bold
+        - italic
+        - underline
+        - unorderedlist
+        - orderedlist
+        - removeformat
+        - quote
+        - anchor
+        - superscript
+        - subscript
+        - alignleft
+        - aligncenter
+        - alignright
+      reading_time: true
+      word_count: true
+      remove_empty_nodes: false
+      container: images
+      always_show_set_button: true
+      collapse: true
+      type: bard
+      display: Blogpost
+      sets:
+        cta_button:
+          display: null
+          sets:
+            table:
+              display: Tabelle
+              fields: {  }
+            accordion:
+              display: Akkordion
+              fields: {  }
+            image_set:
+              display: Bild
+              fields: {  }
